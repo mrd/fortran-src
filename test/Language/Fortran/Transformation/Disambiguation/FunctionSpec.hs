@@ -48,6 +48,11 @@ spec = do
       let pf = disambiguateFunction' $ resetSrcSpan ex6
       pf `shouldBe'` expectedEx6
 
+  describe "Nested user-defined function call disambiguation" $
+    it "disambiguates nested user-defined function calls in example 7" $ do
+      let pf = disambiguateFunction' $ resetSrcSpan ex7
+      pf `shouldBe'` expectedEx7
+
 {-
 - program Main
 - integer a, b(1), c, e
@@ -297,6 +302,48 @@ expectedEx6pu1bs =
       [ Declarator () u (varGen "f") (ArrayDecl (AList () u [ DimensionDeclarator () u Nothing (Just $ intGen 10 ) ])) Nothing Nothing ]))
   , BlStatement () u Nothing
       (StExpressionAssign () u (varGen "a") (ExpSubscript () u (varGen "f") (AList () u [ ixSinGen 1 ]))) ]
+
+{-
+- program Main
+- real x, y
+- x = 5.0
+- y = dbl(dbl(x))
+- end
+-}
+ex7 :: ProgramFile ()
+ex7 = ProgramFile mi90 [ ex7pu1 ]
+ex7pu1 :: ProgramUnit ()
+ex7pu1 = PUMain () u (Just "main") ex7pu1bs Nothing
+ex7pu1bs :: [Block ()]
+ex7pu1bs =
+  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeReal Nothing) Nothing (AList () u
+      [ declVarGen "x"
+      , declVarGen "y" ]))
+  , BlStatement () u Nothing
+      (StExpressionAssign () u (varGen "x") (realGen 5.0))
+  , BlStatement () u Nothing
+      (StExpressionAssign () u (varGen "y")
+        (ExpSubscript () u (varGen "dbl")
+          (AList () u [ IxSingle () u Nothing
+            (ExpSubscript () u (varGen "dbl") (AList () u [ IxSingle () u Nothing (varGen "x") ])) ]))) ]
+
+expectedEx7 :: ProgramFile ()
+expectedEx7 = ProgramFile mi90 [ expectedEx7pu1 ]
+expectedEx7pu1 :: ProgramUnit ()
+expectedEx7pu1 = PUMain () u (Just "main") expectedEx7pu1bs Nothing
+expectedEx7pu1bs :: [Block ()]
+expectedEx7pu1bs =
+  [ BlStatement () u Nothing (StDeclaration () u (TypeSpec () u TypeReal Nothing) Nothing (AList () u
+      [ declVarGen "x"
+      , declVarGen "y" ]))
+  , BlStatement () u Nothing
+      (StExpressionAssign () u (varGen "x") (realGen 5.0))
+  , BlStatement () u Nothing
+      (StExpressionAssign () u (varGen "y")
+        (ExpFunctionCall () u (ExpValue () u (ValVariable "dbl"))
+          (AList () u [ Argument () u Nothing
+            (ArgExpr (ExpFunctionCall () u (ExpValue () u (ValVariable "dbl"))
+              (AList () u [ Argument () u Nothing (ArgExpr (varGen "x")) ]))) ]))) ]
 
 -- Local variables:
 -- mode: haskell
